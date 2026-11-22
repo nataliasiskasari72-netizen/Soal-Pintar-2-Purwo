@@ -98,7 +98,7 @@
             <h2 class="text-sm font-extrabold text-white mb-3 text-center">Login Peserta Ujian</h2>
             <div class="space-y-2">
                 <input id="login-nis" type="text" inputmode="numeric" autocomplete="username" placeholder="NIS" class="w-full bg-navy-950 border border-slate-700 focus:border-emerald-400 rounded-xl p-3 text-white outline-none">
-                <input id="login-pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN Siswa" onkeydown="if(event.key==='Enter'){event.preventDefault();loginStudent();}" class="w-full bg-navy-950 border border-slate-700 focus:border-emerald-400 rounded-xl p-3 text-white outline-none">
+                <input id="login-pin" type="password" inputmode="text" autocomplete="current-password" placeholder="PIN Siswa" onkeydown="if(event.key==='Enter'){event.preventDefault();loginStudent();}" class="w-full bg-navy-950 border border-slate-700 focus:border-emerald-400 rounded-xl p-3 text-white outline-none">
                 <button type="button" onclick="loginStudent()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold rounded-xl p-3">MASUK</button>
                 <p id="student-login-error" class="hidden text-xs text-red-400 text-center"></p>
             </div>
