@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>soalpintar.ai — Ujian Terkunci x Google Form</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        navy: {
+                            950: '#070D17',
+                            900: '#0B1320',
+                            800: '#121D2F',
+                            700: '#1B2A42',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Mencegah seleksi teks dan menu konteks pada mode ujian */
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* Animasi pulse halus untuk status aktif */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.25); }
+            50% { box-shadow: 0 0 22px rgba(16, 185, 129, 0.55); }
+        }
+        .glow-green {
+            animation: pulse-glow 2.5s infinite;
+        }
+
+        /* Latar belakang pola grid teknologi */
+        .bg-tech-grid {
+            background-color: #070D17;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 55%),
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 28px 28px, 28px 28px;
+        }
+
+        /* Animasi guncangan saat terjadi pelanggaran */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-tech-grid text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+    <!-- ==================== TAMPILAN 1: PORTAL MASUK TOKEN (SESUAI GAMBAR) ==================== -->
+    <main id="lobby-view" class="flex-1 flex flex-col items-center justify-center px-4 py-8 w-full max-w-md mx-auto">
+        
+        <!-- Header Brand -->
+        <div class="text-center mb-5">
+            <div class="flex items-center justify-center gap-1.5 mb-2">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">soalpintar<span class="text-emerald-400">.ai</span></span>
+            </div>
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>Ujian Terkunci x Google Form</span>
+            </div>
+        </div>
+
+        <!-- Login Siswa: NIS dan PIN dari database Daftar Siswa -->
+        <div id="student-login-card" class="w-full bg-navy-900/90 border border-slate-700 rounded-2xl p-4 mb-5 shadow-xl">
+            <h2 class="text-sm font-extrabold text-white mb-3 text-center">Login Peserta Ujian</h2>
+            <div class="space-y-2">
+                <input id="login-nis" type="text" inputmode="numeric" autocomplete="username" placeholder="NIS" class="w-full bg-navy-950 border border-slate-700 focus:border-emerald-400 rounded-xl p-3 text-white outline-none">
+                <input id="login-pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN Siswa" onkeydown="if(event.key==='Enter'){event.preventDefault();loginStudent();}" class="w-full bg-navy-950 border border-slate-700 focus:border-emerald-400 rounded-xl p-3 text-white outline-none">
+                <button type="button" onclick="loginStudent()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold rounded-xl p-3">MASUK</button>
+                <p id="student-login-error" class="hidden text-xs text-red-400 text-center"></p>
+            </div>
+        </div>
+
+        <!-- Banner Peringatan Merah -->
+        <div class="w-full bg-red-600/95 border border-red-400/50 rounded-2xl p-3 mb-6 shadow-lg shadow-red-950/50 flex items-center justify-center gap-3">
+            <div class="bg-white text-red-600 rounded-xl p-1.5 shrink-0 shadow">
+                <i data-lucide="alert-triangle" class="w-6 h-6 stroke-[2.5]"></i>
+            </div>
+            <div class="bg-amber-400 text-slate-950 font-extrabold text-sm sm:text-base px-3.5 py-1.5 rounded-xl tracking-tight shadow-inner">
+                Pengawasan Aktivitas Halaman
+            </div>
+        </div>
+
+        <!-- Ikon Dokumen Google Form -->
+        <div class="mb-6 relative">
+            <div class="w-16 h-16 rounded-2xl bg-navy-800 border-2 border-emerald-500/60 flex items-center justify-center glow-green">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kartu Input Token Ujian -->
+        <div id="exam-selection-card" class="hidden w-full bg-navy-900/90 backdrop-blur-md border border-slate-700/70 rounded-3xl p-5 sm:p-6 shadow-2xl mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <label for="token-input" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                    <span>Token Ujian</span>
+                </label>
+            </div>
+
+            <!-- Input Token -->
+            <div class="mb-3">
+                <input 
+                    type="text" 
+                    id="token-input" 
+                    value=""
+                    maxlength="12"
+                    placeholder="MASUKKAN TOKEN"
+                    autocomplete="off"
+                    onkeydown="if (event.key === 'Enter') { event.preventDefault(); startExam(); }"
+                    class="w-full bg-navy-950 border-2 border-slate-700 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/15 rounded-2xl py-3.5 px-4 text-center font-mono text-xl sm:text-2xl font-bold tracking-[0.25em] text-white uppercase outline-none transition-all"
+                >
+            </div>
+
+            <!-- Pilihan Cepat Token Tersimpan -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                    <span>Token Siap Pakai:</span>
+                    <span id="saved-token-count" class="font-mono text-emerald-400">1 token</span>
+                </div>
+                <!-- Filter cepat jenjang kelas 7, 8, 9 -->
+                <div id="grade-filter-bar" class="flex flex-wrap gap-1 mb-2">
+                    <button type="button" data-grade="ALL" onclick="setGradeFilter('ALL')" class="grade-filter-btn px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/50">Semua</button>
+                    <button type="button" data-grade="Kelas 7" onclick="setGradeFilter('Kelas 7')" class="grade-filter-btn px-2 py-0.5 rounded-md text-[10px] font-semibold bg-navy-950 text-slate-400 border border-slate-700 hover:text-white">Kls 7 (7A/7B)</button>
+                    <button type="button" data-grade="Kelas 8" onclick="setGradeFilter('Kelas 8')" class="grade-filter-btn px-2 py-0.5 rounded-md text-[10px] font-semibold bg-navy-950 text-slate-400 border border-slate-700 hover:text-white">Kls 8 (8A/8B)</button>
+                    <button type="button" data-grade="Kelas 9" onclick="setGradeFilter('Kelas 9')" class="grade-filter-btn px-2 py-0.5 rounded-md text-[10px] font-semibold bg-navy-950 text-slate-400 border border-slate-700 hover:text-white">Kls 9 (9A/9B)</button>
+                </div>
+                <div id="quick-token-chips" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <!-- Identitas siswa diambil otomatis dari Daftar Siswa -->
+            <div class="mb-4 rounded-xl border border-sky-500/30 bg-sky-950/40 p-3 text-sm">
+                <div id="student-name" class="font-bold text-white">-</div>
+                <div id="student-class-display" class="text-xs text-sky-300 mt-1">Kelas: -</div>
+            </div>
+            <button type="button" onclick="logoutStudent()" class="w-full mb-3 text-xs text-slate-400 underline">Keluar / ganti siswa</button>
+
+            <!-- Tombol Mulai Ujian -->
+            <button 
+                type="button"
+                onclick="startExam()"
+                class="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-extrabold text-sm sm:text-base py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+                <i data-lucide="play" class="w-4 h-4 fill-slate-950"></i>
+                <span>MULAI UJIAN</span>
+            </button>
+
+            <!-- Pesan Error Token -->
+            <p id="token-error" class="hidden text-center text-xs text-red-400 font-medium mt-3"></p>
+        </div>
+
+        <!-- Status Keamanan Aktif -->
+        <div class="w-full mb-5">
+            <p class="text-center text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-3">
+                Keamanan Aktif
+            </p>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-navy-800/80 border border-slate-700/60 rounded-xl p-2 flex flex-col items-center justify-center gap-1">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span class="text-[10px] font-semibold text-slate-200 leading-tight">Mode Pengawasan</span>
+                </div>
+                <div class="bg-navy-800/80 border border-slate-700/60 rounded-xl p-2 flex flex-col items-center justify-center gap-1">
+                    <i data-lucide="eye" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span class="text-[10px] font-semibold text-slate-200 leading-tight">Timer Otomatis</span>
+                </div>
+                <div class="bg-navy-800/80 border border-slate-700/60 rounded-xl p-2 flex flex-col items-center justify-center gap-1">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span class="text-[10px] font-semibold text-slate-200 leading-tight">1 Token 1 Device</span>
+                </div>
+            </div>
+            <p class="text-center text-[11px] text-slate-400 mt-2.5">
+                Token diberikan oleh guru pengawas ujian
+            </p>
+            <div id="db-sync-badge" class="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+                <span id="db-sync-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span id="db-sync-text">Mode Lokal (Atur URL Spreadsheet di Panel Guru)</span>
+            </div>
+        </div>
+
+        <!-- Kartu Peringatan Sistem Mode Pengawasan -->
+        <div class="w-full bg-navy-900/95 border border-amber-500/40 rounded-2xl p-4 shadow-lg">
+            <h2 class="text-center text-xs sm:text-sm font-extrabold tracking-wide text-amber-400 uppercase mb-2.5">
+                Sistem Mode Pengawasan
+            </h2>
+            <div class="bg-amber-400 text-slate-950 rounded-xl p-3 flex items-center gap-3 shadow-inner">
+                <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600 shrink-0 stroke-[2.5]"></i>
+                <p class="text-xs font-bold leading-snug">
+                    Aktivitas meninggalkan halaman dapat terdeteksi; screenshot tidak dapat dicegah secara mutlak
+                </p>
+            </div>
+        </div>
+
+        <!-- Tombol Mode Guru (Pengaturan Link Google Form & Token) -->
+        <div class="mt-6 flex items-center justify-center gap-4 text-xs text-slate-400">
+            <button type="button" onclick="openTeacherModal()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy-800/80 hover:bg-navy-700 border border-slate-700 text-slate-300 transition-colors">
+                <i data-lucide="settings" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Panel Guru (Buat Token & Link Form)</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- ==================== TAMPILAN 2: RUANG UJIAN TERKUNCI ==================== -->
+    <section id="exam-view" class="hidden fixed inset-0 z-40 bg-navy-950 flex flex-col no-select">
+        
+        <!-- Top Security Header Bar -->
+        <header class="bg-navy-900 border-b border-slate-800 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                </div>
+                <div class="truncate">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-sm text-white truncate" id="exam-title-display">Ujian Terkunci</span>
+                        <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-mono text-[11px] font-bold" id="active-token-badge"></span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 truncate" id="active-student-display">Peserta Ujian</p>
+                </div>
+            </div>
+
+            <!-- Status Indikator & Timer -->
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                <!-- Penghitung Pelanggaran -->
+                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 text-xs font-bold" title="Jumlah Pelanggaran">
+                    <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i>
+                    <span>Pelanggaran: <span id="violation-count">0</span>/3</span>
+                </div>
+
+                <!-- Timer Mundur -->
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-navy-800 border border-slate-700 text-amber-400 font-mono text-xs sm:text-sm font-bold">
+                    <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                    <span id="exam-timer">60:00</span>
+                </div>
+
+                <!-- Tombol Selesai / Keluar Pengawas -->
+                <button type="button" onclick="requestExitExam()" class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors flex items-center gap-1">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span class="hidden sm:inline">Selesai</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Banner Peringatan Anti-Screenshot Permanen -->
+        <div class="bg-red-600 text-white text-[11px] sm:text-xs font-semibold py-1.5 px-4 text-center flex items-center justify-center gap-2 shrink-0">
+            <i data-lucide="lock" class="w-3.5 h-3.5 shrink-0"></i>
+            <span>MODE PENGAWASAN AKTIF — Aktivitas meninggalkan halaman dapat dicatat. Browser tidak dapat menjamin pencegahan screenshot atau perpindahan aplikasi.</span>
+        </div>
+
+        <!-- Konten Utama Ujian: Google Form -->
+        <div id="exam-content-area" class="flex-1 relative bg-slate-100 overflow-y-auto">
+            <!-- Iframe Google Form -->
+            <iframe id="google-form-iframe" class="hidden w-full h-full border-0" src="" title="Formulir Ujian"></iframe>
+
+        </div>
+    </section>
+
+    <!-- ==================== OVERLAY PERINGATAN PELANGGARAN (ANTI-CHEAT) ==================== -->
+    <div id="violation-overlay" class="hidden fixed inset-0 z-50 bg-red-950/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div id="violation-card" class="bg-navy-900 border-2 border-red-500 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl">
+            <div class="w-16 h-16 rounded-2xl bg-red-600 text-white mx-auto mb-4 flex items-center justify-center shadow-lg shadow-red-600/40">
+                <i data-lucide="shield-alert" class="w-9 h-9"></i>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-red-400 uppercase tracking-tight mb-2">
+                Pelanggaran Terdeteksi!
+            </h2>
+            <p id="violation-reason" class="text-sm text-slate-200 mb-4 leading-relaxed">
+                Anda terdeteksi meninggalkan layar ujian atau menekan tombol terlarang.
+            </p>
+            <div class="bg-red-950/80 border border-red-500/40 rounded-2xl p-3 mb-5">
+                <p class="text-xs text-red-300 font-semibold">
+                    Status Pelanggaran: <span id="modal-violation-count" class="text-white font-extrabold text-sm">1 dari 3</span>
+                </p>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Jika mencapai 3 pelanggaran, ujian akan otomatis dikunci dan membutuhkan PIN Pengawas.
+                </p>
+            </div>
+            <button id="resume-exam-btn" type="button" onclick="dismissViolation()" class="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold py-3.5 px-6 rounded-2xl transition-colors">
+                KEMBALI KE LAYAR TERKUNCI
+            </button>
+
+            <!-- Bagian Unlock PIN Pengawas jika pelanggaran >= 3 -->
+            <div id="locked-out-box" class="hidden mt-4 pt-4 border-t border-slate-700">
+                <p class="text-xs font-bold text-red-400 uppercase mb-2">Ujian Terkunci Permanen — Masukkan PIN Pengawas</p>
+                <div class="flex gap-2">
+                    <input type="password" id="supervisor-pin-input" placeholder="PIN (Default: 1234)" class="flex-1 bg-navy-950 border border-slate-600 rounded-xl px-3 py-2.5 text-center font-mono text-sm text-white outline-none">
+                    <button type="button" onclick="unlockWithSupervisorPin()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs">
+                        Buka Kunci
+                    </button>
+                </div>
+                <p id="pin-error" class="hidden text-xs text-red-400 mt-2">PIN Pengawas salah!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL KONFIRMASI SELESAI UJIAN ==================== -->
+    <div id="exit-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-navy-900 border border-slate-700 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto mb-3 flex items-center justify-center">
+                <i data-lucide="help-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-1">Akhiri Sesi Ujian?</h3>
+            <p class="text-xs text-slate-400 mb-5">Pastikan Anda sudah menekan tombol <b>Kirim / Submit</b> di dalam formulir ujian sebelum keluar.</p>
+            <div class="flex gap-2.5">
+                <button type="button" onclick="closeExitModal()" class="flex-1 py-2.5 px-4 rounded-xl bg-navy-800 hover:bg-navy-700 text-slate-200 text-xs font-bold">
+                    Batal
+                </button>
+                <button type="button" onclick="confirmExitExam()" class="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold">
+                    Ya, Keluar Ujian
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PANEL GURU -->
+    <div id="teacher-modal" class="hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto">
+      <div class="bg-navy-900 border border-slate-700 rounded-3xl max-w-xl w-full p-5 my-auto shadow-2xl">
+        <div class="flex items-center justify-between mb-4"><div><h2 class="text-lg font-extrabold">Panel Guru</h2><p class="text-xs text-slate-400">Kelola token; nilai diambil langsung dari respons Google Form</p></div><button onclick="closeTeacherModal()" class="rounded-lg px-3 py-2 bg-navy-800">✕</button></div>
+        <div id="teacher-auth" class="space-y-3"><label class="block text-xs text-slate-300">PIN Panel Guru<input id="teacher-pin" type="password" autocomplete="off" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-3 text-white" placeholder="Masukkan PIN Guru"></label><button onclick="teacherLogin()" class="w-full bg-emerald-500 text-slate-950 font-bold rounded-xl p-3">Masuk Panel</button><p id="teacher-auth-error" class="hidden text-sm text-red-400"></p></div>
+        <form id="teacher-form" class="hidden space-y-3 mt-2" onsubmit="saveTokenForm(event)">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><label class="text-xs text-slate-300">Token<input id="cfg-token" required maxlength="12" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5 uppercase" placeholder="TOKEN"></label><label class="text-xs text-slate-300">Jenjang kelas<input id="cfg-grade" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5" value="Kelas 7"></label><label class="text-xs text-slate-300">Rombel target<input id="cfg-rombel" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5" placeholder="7A, 7B"></label><label class="text-xs text-slate-300">Mata pelajaran<input id="cfg-subject" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300 sm:col-span-2">Judul ujian<input id="cfg-title" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300 sm:col-span-2">Link Edit Google Form<input id="cfg-editurl" required class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5" placeholder="https://docs.google.com/forms/d/.../edit"></label><label class="text-xs text-emerald-300 sm:col-span-2">Link Form siswa akan diambil otomatis oleh sistem dari Form ini. Pastikan akun Apps Script memiliki akses ke Google Form.</label><label class="text-xs text-slate-300 sm:col-span-2">Respons dan nilai dibaca langsung dari Google Form. Tidak perlu link Spreadsheet Respon.</label><label class="text-xs text-slate-300">Durasi (menit)<input id="cfg-duration" type="number" min="1" value="60" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300">Tanggal Ujian<input id="cfg-date" type="date" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300">Jam Mulai<input id="cfg-start" type="time" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300">Jam Selesai<input id="cfg-end" type="time" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label><label class="text-xs text-slate-300">PIN Pengawas<input id="cfg-superpin" type="password" value="1234" class="mt-1 w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5"></label></div>
+          <div class="flex gap-2"><button type="submit" class="flex-1 bg-emerald-500 text-slate-950 font-extrabold rounded-xl p-3">Simpan Token</button><button type="button" onclick="syncGrades()" class="bg-sky-600 rounded-xl p-3 font-bold">Sinkron Nilai</button></div><div class="mt-4 border-t border-slate-700 pt-4 space-y-2">
+            <p class="text-xs font-bold text-amber-300">Reset Token Siap Pakai per Kelas</p>
+            <div class="flex gap-2">
+              <select id="reset-grade" class="flex-1 bg-navy-950 border border-slate-700 rounded-xl p-2.5 text-sm text-white">
+                <option value="Kelas 7">Kelas VII</option><option value="Kelas 8">Kelas VIII</option><option value="Kelas 9">Kelas IX</option>
+              </select>
+              <button type="button" onclick="resetClassTokens()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl px-3 py-2.5 text-sm">Reset Token Kelas</button>
+            </div>
+            <p class="text-[11px] text-slate-400">Menonaktifkan token/jadwal kelas yang dipilih saja. Jadwal, respons Google Form, dan nilai tidak dihapus.</p>
+          </div>
+          <p id="teacher-save-status" class="text-xs text-slate-300"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- PESAN STATUS -->
+    <div id="notice-modal" class="hidden fixed inset-0 z-[70] bg-black/75 flex items-center justify-center p-4"><div class="bg-navy-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 text-center"><h3 id="notice-title" class="font-extrabold text-lg mb-2">Informasi</h3><p id="notice-message" class="text-sm text-slate-300 mb-4"></p><button onclick="closeNotice()" class="bg-emerald-500 text-slate-950 font-bold rounded-xl px-5 py-2">OK</button></div></div>
+
+    <script>
+
+      // GANTI URL ini dengan URL Web App Apps Script yang berakhiran /exec.
+      const API_URL = 'https://script.google.com/macros/s/AKfycbzpWn4XwOxqSj-JaMW2U1Y9IA8sQX7Ka7TSkjfueCw-QCA-gbo2n_Tf0uAHFKIneRdW/exec';
+      let examsByToken = {}, currentExam = null, studentName = '', loggedStudent = null, allowedStudentTokens = new Set(), violations = 0, timerSeconds = 0, timerHandle = null, teacherSession = '', gradeFilter = 'ALL';
+      let isLocked = false, examStarted = false, lastViolationAt = 0;
+      const $ = id => document.getElementById(id);
+
+      function showNotice(title, message) {
+        $('notice-title').textContent = title;
+        $('notice-message').textContent = message;
+        $('notice-modal').classList.remove('hidden');
+      }
+      function closeNotice() { $('notice-modal').classList.add('hidden'); }
+
+      // JSONP untuk komunikasi lintas-domain ke GAS Web App.
+      function jsonp(action, data = {}) {
+        return new Promise((resolve, reject) => {
+          if (!API_URL || API_URL.includes('PASTE_URL')) {
+            reject(new Error('URL Web App GAS belum dipasang pada variabel API_URL.'));
+            return;
+          }
+          const cb = 'spai_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+          const script = document.createElement('script');
+          const params = new URLSearchParams({ ...data, action, callback: cb });
+          let settled = false;
+          const timeoutMs = action === 'syncFormGrades' ? 180000 : 20000; // sinkronisasi nilai diberi waktu 3 menit
+          const timeout = setTimeout(() => { cleanup(); reject(new Error('Permintaan server timeout (' + Math.round(timeoutMs/1000) + ' detik). Periksa URL deployment, koneksi, atau jumlah respons Form.')); }, timeoutMs);
+          function cleanup() {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            delete window[cb];
+            script.remove();
+          }
+          window[cb] = result => { cleanup(); if (Array.isArray(result)) { resolve(result); return; } if (result && result.status === undefined) result.status = result.ok === false ? 'error' : 'success'; resolve(result); };
+          script.onerror = () => { cleanup(); reject(new Error('Tidak dapat menghubungi Google Apps Script.')); };
+          script.src = API_URL + '?' + params.toString();
+          document.head.appendChild(script);
+        });
+      }
+
+      function setDbStatus(ok, text) {
+        $('db-sync-dot').className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-emerald-400' : 'bg-red-400');
+        $('db-sync-text').textContent = text;
+      }
+      let tokenRefreshBusy = false;
+      async function loadTokens() {
+        if (tokenRefreshBusy) return;
+        tokenRefreshBusy = true;
+        try {
+          const res = await jsonp('getTokens');
+          if (!Array.isArray(res) && res.status !== 'success') throw new Error(res.message || 'Gagal mengambil token');
+          if (Array.isArray(res)) { examsByToken = {}; res.forEach(exam => { const key = String(exam.token || exam.Token || '').toUpperCase(); if (key) examsByToken[key] = exam; }); } else { examsByToken = res.exams || {}; }
+          renderTokenChips();
+          setDbStatus(true, 'Terhubung · diperbarui ' + new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'}));
+        } catch (e) {
+          setDbStatus(false, 'Tidak terhubung: ' + e.message);
+          $('token-error').textContent = e.message;
+          $('token-error').classList.remove('hidden');
+        } finally {
+          tokenRefreshBusy = false;
+        }
+      }
+      function setGradeFilter(filter) {
+        gradeFilter = filter;
+        document.querySelectorAll('.grade-filter-btn').forEach(btn => {
+          const active = btn.dataset.grade === filter;
+          btn.className = 'grade-filter-btn px-2 py-0.5 rounded-md text-[10px] font-bold ' + (active
+            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50'
+            : 'bg-navy-950 text-slate-400 border border-slate-700 hover:text-white');
+        });
+        renderTokenChips();
+      }
+      function classGrade(exam) {
+        const s = (exam.gradeLevel || '').toLowerCase();
+        return s.includes('8') ? 'Kelas 8' : s.includes('9') ? 'Kelas 9' : 'Kelas 7';
+      }
+      function renderTokenChips() {
+        const box = $('quick-token-chips');
+        box.innerHTML = '';
+        const entries = Object.values(examsByToken).filter(e => loggedStudent && allowedStudentTokens.has(String(e.token||'').toUpperCase()) && (gradeFilter === 'ALL' || classGrade(e) === gradeFilter));
+        $('saved-token-count').textContent = entries.length + ' token';
+        entries.forEach(e => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-950/50 text-emerald-300 text-[11px] font-mono font-bold';
+          b.textContent = e.token + ' · ' + (e.subject || e.title || '') + (e.date ? ' · ' + e.date + (e.start ? ' ' + e.start : '') : '');
+          b.onclick = () => { $('token-input').value = e.token; };
+          box.appendChild(b);
+        });
+        if (!entries.length) {
+          const p = document.createElement('span');
+          p.className = 'text-[11px] text-slate-500';
+          p.textContent = loggedStudent ? 'Belum ada token ujian untuk siswa/kelas ini pada filter.' : 'Login siswa terlebih dahulu untuk melihat token ujian.';
+          box.appendChild(p);
+        }
+      }
+      async function loginStudent() {
+        const nis=$('login-nis').value.trim();
+        const pin=$('login-pin').value.trim();
+        $('student-login-error').classList.add('hidden');
+        if(!nis||!pin){$('student-login-error').textContent='NIS dan PIN harus diisi.';$('student-login-error').classList.remove('hidden');return;}
+        try {
+          $('student-login-error').textContent='Memeriksa data siswa…';$('student-login-error').classList.remove('hidden');
+          const res=await jsonp('authStudent',{nis,pin});
+          if(!res||!res.ok) throw new Error(res.message||'Login gagal.');
+          loggedStudent=res.student;
+          allowedStudentTokens=new Set((res.exams||[]).map(e=>String(e.token||'').toUpperCase()));
+          studentName=loggedStudent.name;
+          $('student-name').textContent=loggedStudent.name+' · NIS '+loggedStudent.nis;
+          $('student-class-display').textContent='Kelas: '+loggedStudent.kelas;
+          $('student-login-card').classList.add('hidden');
+          $('exam-selection-card').classList.remove('hidden');
+          $('student-login-error').classList.add('hidden');
+          renderTokenChips();
+        } catch(e) {
+          $('student-login-error').textContent=e.message||'Login tidak berhasil.';
+          $('student-login-error').classList.remove('hidden');
+        }
+      }
+      function logoutStudent() {
+        loggedStudent=null;allowedStudentTokens=new Set();studentName='';currentExam=null;
+        $('login-nis').value='';$('login-pin').value='';$('token-input').value='';
+        $('exam-selection-card').classList.add('hidden');$('student-login-card').classList.remove('hidden');
+        renderTokenChips();
+      }
+
+      function toEmbedUrl(url) {
+        const clean = String(url || '').trim();
+        if (!clean) return '';
+        // Hanya gunakan link responden; jangan mencoba membuka link edit dalam iframe.
+        try {
+          const u = new URL(clean);
+          const isResponder = (u.hostname === 'docs.google.com' && /\/forms\/d\/(?:e\/)?[^/]+\/viewform/.test(u.pathname)) || u.hostname === 'forms.gle';
+          if (!isResponder) return '';
+          if (u.hostname === 'docs.google.com') u.searchParams.set('embedded', 'true');
+          return u.toString();
+        } catch (e) { return ''; }
+      }
+      async function startExam() {
+        const token = $('token-input').value.trim().toUpperCase();
+        if(!loggedStudent){$('token-error').textContent='Silakan login menggunakan NIS dan PIN terlebih dahulu.';$('token-error').classList.remove('hidden');return;}
+        studentName = loggedStudent.name;
+        $('token-error').classList.add('hidden');
+        currentExam = examsByToken[token];
+        if (!currentExam || !allowedStudentTokens.has(token)) {
+          $('token-error').textContent = 'Token tidak tersedia untuk siswa/kelas Anda. Gunakan token yang ditampilkan pada daftar.';
+          $('token-error').classList.remove('hidden');
+          return;
+        }
+        if (examStarted) return;
+        const scheduleState = String(currentExam.status || '').toUpperCase();
+        if (scheduleState === 'BELUM_DIMULAI') {
+          $('token-error').textContent = 'Ujian belum dimulai. Ikuti tanggal dan jam jadwal yang ditetapkan guru.';
+          $('token-error').classList.remove('hidden');
+          return;
+        }
+        if (scheduleState === 'SELESAI') {
+          $('token-error').textContent = 'Jadwal ujian ini sudah berakhir. Token tidak dapat digunakan lagi.';
+          $('token-error').classList.remove('hidden');
+          return;
+        }
+        const formUrl = toEmbedUrl(currentExam.url || currentExam.editUrl || '');
+        if (!formUrl) {
+          $('token-error').textContent = 'Link responden Google Form belum benar/tersimpan. Guru perlu mengisi link siswa (/viewform), bukan link edit.';
+          $('token-error').classList.remove('hidden');
+          return;
+        }
+
+        $('exam-title-display').textContent = currentExam.title || currentExam.subject || 'Ujian';
+        $('active-token-badge').textContent = token;
+        $('active-student-display').textContent = studentName;
+        $('lobby-view').classList.add('hidden');
+        $('exam-view').classList.remove('hidden');
+        $('violation-count').textContent = '0';
+        violations = 0;
+        isLocked = false;
+        examStarted = true;
+        lastViolationAt = 0;
+
+        $('google-form-iframe').classList.remove('hidden');
+        $('google-form-iframe').src = formUrl;
+
+        timerSeconds = Math.max(1, Number(currentExam.duration) || 60) * 60;
+        updateTimer();
+        clearInterval(timerHandle);
+        timerHandle = setInterval(() => {
+          if (!examStarted) return;
+          timerSeconds = Math.max(0, timerSeconds - 1);
+          updateTimer();
+          if (timerSeconds <= 0) {
+            clearInterval(timerHandle);
+            showNotice('Waktu Habis', 'Waktu ujian telah berakhir. Selesaikan dan kirim Google Form jika tombol submit masih tersedia, lalu ikuti arahan pengawas.');
+          }
+        }, 1000);
+
+        // Catat mulai ujian. Interaksi dalam iframe tidak memicu pelanggaran.
+        jsonp('logActivity', { studentName, token, violations: 0, detail: 'Mulai mengerjakan ujian' }).catch(() => {});
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        // Sengaja tidak memakai window.blur atau fullscreenchange:
+        // fokus ke iframe Google Form / kegagalan fullscreen bukan bukti pelanggaran.
+        try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
+      }
+
+      function updateTimer() {
+        const m = Math.floor(Math.max(0, timerSeconds) / 60);
+        const s = Math.max(0, timerSeconds) % 60;
+        $('exam-timer').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      }
+
+      // Sinyal browser yang dipakai hanya visibilitychange. Fokus iframe, klik,
+      // mengetik, memilih jawaban, dan scroll di Google Form bukan pelanggaran.
+      function recordViolation(reason) {
+        const now = Date.now();
+        if (!examStarted || isLocked || now - lastViolationAt < 1800) return;
+        lastViolationAt = now;
+        violations = Math.min(3, violations + 1);
+        $('violation-count').textContent = violations;
+        $('violation-reason').textContent = reason;
+        $('modal-violation-count').textContent = violations + ' dari 3';
+        $('violation-overlay').classList.remove('hidden');
+        $('violation-card').classList.remove('animate-shake');
+        void $('violation-card').offsetWidth;
+        $('violation-card').classList.add('animate-shake');
+        jsonp('logActivity', { studentName, token: currentExam.token, violations, detail: reason }).catch(() => {});
+        if (violations >= 3) {
+          isLocked = true;
+          $('resume-exam-btn').classList.add('hidden');
+          $('locked-out-box').classList.remove('hidden');
+        } else {
+          $('resume-exam-btn').classList.remove('hidden');
+          $('locked-out-box').classList.add('hidden');
+        }
+      }
+      function onVisibilityChange() {
+        if (document.hidden) recordViolation('Halaman ujian menjadi tidak terlihat (tab/aplikasi berpindah).');
+      }
+      function dismissViolation() {
+        if (isLocked) return;
+        $('violation-overlay').classList.add('hidden');
+        try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
+      }
+      async function unlockWithSupervisorPin() {
+        const pin = $('supervisor-pin-input').value;
+        $('pin-error').classList.add('hidden');
+        try {
+          const res = await jsonp('verifySupervisorPin', { token: currentExam.token, pin });
+          if (res.status === 'success') {
+            isLocked = false;
+            $('violation-overlay').classList.add('hidden');
+            $('locked-out-box').classList.add('hidden');
+            $('resume-exam-btn').classList.remove('hidden');
+            $('supervisor-pin-input').value = '';
+            showNotice('Sesi dibuka', 'PIN pengawas valid. Riwayat pelanggaran tetap tercatat.');
+          } else {
+            $('pin-error').textContent = res.message || 'PIN salah.';
+            $('pin-error').classList.remove('hidden');
+          }
+        } catch (e) {
+          $('pin-error').textContent = e.message;
+          $('pin-error').classList.remove('hidden');
+        }
+      }
+      function requestExitExam() { $('exit-modal').classList.remove('hidden'); }
+      function closeExitModal() { $('exit-modal').classList.add('hidden'); }
+      function confirmExitExam() {
+        closeExitModal();
+        cleanupExam();
+        $('exam-view').classList.add('hidden');
+        $('lobby-view').classList.remove('hidden');
+        $('google-form-iframe').src = '';
+      }
+      function cleanupExam() {
+        examStarted = false;
+        isLocked = false;
+        clearInterval(timerHandle);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        try { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); } catch (e) {}
+      }
+
+      // Panel Guru: PIN diverifikasi server dan server mengeluarkan sesi sementara.
+      function openTeacherModal() {
+        $('teacher-modal').classList.remove('hidden');
+        $('teacher-auth').classList.remove('hidden');
+        $('teacher-form').classList.add('hidden');
+        $('teacher-pin').value = '';
+        $('teacher-auth-error').classList.add('hidden');
+        $('teacher-save-status').textContent = '';
+        teacherSession = '';
+      }
+      function closeTeacherModal() { $('teacher-modal').classList.add('hidden'); }
+      async function teacherLogin() {
+        const pin = $('teacher-pin').value;
+        if (!pin) {
+          $('teacher-auth-error').textContent = 'PIN harus diisi.';
+          $('teacher-auth-error').classList.remove('hidden');
+          return;
+        }
+        $('teacher-auth-error').classList.add('hidden');
+        try {
+          const res = await jsonp('verifyTeacherPin', { pin });
+          if (res.status !== 'success' || !res.teacherSession) throw new Error(res.message || 'PIN salah.');
+          teacherSession = res.teacherSession;
+          $('teacher-auth').classList.add('hidden');
+          $('teacher-form').classList.remove('hidden');
+          $('teacher-pin').value = '';
+        } catch (e) {
+          $('teacher-auth-error').textContent = e.message;
+          $('teacher-auth-error').classList.remove('hidden');
+        }
+      }
+      async function saveTokenForm(ev) {
+        ev.preventDefault();
+        if (!teacherSession) { $('teacher-save-status').textContent = 'Sesi guru tidak aktif. Login kembali.'; return; }
+        const payload = {
+          teacherSession,
+          token: $('cfg-token').value.trim().toUpperCase(),
+          gradeLevel: $('cfg-grade').value,
+          rombel: $('cfg-rombel').value,
+          subject: $('cfg-subject').value,
+          title: $('cfg-title').value,
+          editUrl: $('cfg-editurl').value.trim(),
+          duration: $('cfg-duration').value,
+          date: $('cfg-date').value,
+          start: $('cfg-start').value,
+          end: $('cfg-end').value,
+          supervisorPin: $('cfg-superpin').value
+        };
+        $('teacher-save-status').textContent = 'Menyimpan ke Spreadsheet…';
+        try {
+          const res = await jsonp('saveToken', payload);
+          if (res.status !== 'success') throw new Error(res.message || 'Gagal menyimpan token.');
+          $('teacher-save-status').textContent = res.message + (res.viewUrl ? ' | Link siswa: ' + res.viewUrl : '');
+          await loadTokens();
+          $('token-input').value = payload.token;
+        } catch (e) {
+          $('teacher-save-status').textContent = 'Gagal: ' + e.message;
+        }
+      }
+      async function resetClassTokens() {
+        if (!teacherSession) { $('teacher-save-status').textContent = 'Login guru kembali untuk reset token.'; return; }
+        const grade = $('reset-grade').value;
+        if (!confirm('Nonaktifkan semua token/jadwal untuk ' + grade + '? Data respons dan nilai TIDAK akan dihapus.')) return;
+        $('teacher-save-status').textContent = 'Mereset token kelas…';
+        try {
+          const res = await jsonp('resetClassTokens', {teacherSession, gradeLevel: grade});
+          if (res.status !== 'success') throw new Error(res.message || 'Reset token gagal.');
+          $('teacher-save-status').textContent = res.message || 'Reset token selesai.';
+          await loadTokens();
+        } catch (e) {
+          $('teacher-save-status').textContent = 'Reset gagal: ' + e.message;
+        }
+      }
+      async function syncGrades() {
+        if (!teacherSession) { $('teacher-save-status').textContent = 'Login guru kembali untuk sinkronisasi.'; return; }
+        $('teacher-save-status').textContent = 'Sinkronisasi nilai…';
+        try {
+          const r = await jsonp('syncFormGrades', { teacherSession });
+          if (r.status !== 'success') throw new Error(r.message || 'Sinkronisasi gagal.');
+          $('teacher-save-status').textContent = r.message || 'Sinkron selesai';
+        } catch (e) {
+          $('teacher-save-status').textContent = 'Gagal sinkron: ' + e.message;
+        }
+      }
+      window.addEventListener('load', () => {
+        if (window.lucide) lucide.createIcons();
+        loadTokens();
+        // Refresh jadwal/token otomatis setiap 30 detik; refresh saat tab kembali aktif.
+        setInterval(() => { if (!document.hidden) loadTokens(); }, 30000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) loadTokens(); });
+      });
+
+    </script>
+</body>
+</html>
