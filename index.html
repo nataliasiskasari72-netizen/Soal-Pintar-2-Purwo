@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PORTAL CBT.ASAS — SMP Negeri 2 Purwosari</title>
+    <title>soalpintar.ai — Ujian Terkunci x Google Form</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -85,11 +85,11 @@
         <!-- Header Brand -->
         <div class="text-center mb-5">
             <div class="flex items-center justify-center gap-1.5 mb-2">
-                <span class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">PORTAL CBT<span class="text-emerald-400">.ASAS</span></span>
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">soalpintar<span class="text-emerald-400">.ai</span></span>
             </div>
             <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-sm">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>SMP Negeri 2 Purwosari</span>
+                <span>Ujian Terkunci x Google Form</span>
             </div>
         </div>
 
@@ -372,6 +372,14 @@
             </div>
             <p class="text-[11px] text-slate-400">Menonaktifkan token/jadwal kelas yang dipilih saja. Jadwal, respons Google Form, dan nilai tidak dihapus.</p>
           </div>
+          <div class="mt-4 border-t border-slate-700 pt-4 space-y-2">
+            <p class="text-xs font-bold text-red-300">Reset Nilai per Ujian</p>
+            <select id="reset-exam-select" class="w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5 text-sm text-white">
+              <option value="">Memuat daftar ujian…</option>
+            </select>
+            <button type="button" onclick="resetExamScores()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl px-3 py-2.5 text-sm">Reset Nilai Ujian Terpilih</button>
+            <p class="text-[11px] text-slate-400">Hanya menghapus baris ujian terpilih pada tab Nilai dan RekapNilai. Respons asli Google Form, soal, siswa, jadwal, dan ujian lain tetap ada. Sinkronisasi ulang dapat mengembalikan nilai dari respons Form.</p>
+          </div>
           <p id="teacher-save-status" class="text-xs text-slate-300"></p>
         </form>
       </div>
@@ -383,7 +391,7 @@
     <script>
 
       // GANTI URL ini dengan URL Web App Apps Script yang berakhiran /exec.
-      const API_URL = 'https://script.google.com/macros/s/AKfycbzpWn4XwOxqSj-JaMW2U1Y9IA8sQX7Ka7TSkjfueCw-QCA-gbo2n_Tf0uAHFKIneRdW/exec';
+      const API_URL = 'https://script.google.com/macros/s/AKfycby33FLfSB3D8xguiH_ZWlKVG8Mp-zd2hGuBs9SjzV4ziyO36nT2c15ykcCCiID_e1e-/exec';
       let examsByToken = {}, currentExam = null, studentName = '', loggedStudent = null, allowedStudentTokens = new Set(), violations = 0, timerSeconds = 0, timerHandle = null, teacherSession = '', gradeFilter = 'ALL';
       let isLocked = false, examStarted = false, lastViolationAt = 0;
       const $ = id => document.getElementById(id);
@@ -687,6 +695,7 @@
           $('teacher-auth').classList.add('hidden');
           $('teacher-form').classList.remove('hidden');
           $('teacher-pin').value = '';
+          await loadResetExamOptions();
         } catch (e) {
           $('teacher-auth-error').textContent = e.message;
           $('teacher-auth-error').classList.remove('hidden');
@@ -720,6 +729,44 @@
           $('teacher-save-status').textContent = 'Gagal: ' + e.message;
         }
       }
+      async function loadResetExamOptions() {
+        const select=$('reset-exam-select');
+        select.innerHTML='<option value="">Memuat daftar ujian…</option>';
+        try {
+          const res=await jsonp('listSchedules',{teacherSession});
+          if(!Array.isArray(res)) throw new Error(res.message||'Daftar jadwal tidak tersedia.');
+          select.innerHTML='<option value="">-- Pilih ujian yang akan direset --</option>';
+          res.forEach(exam=>{
+            const token=String(exam.Token||exam.token||'').trim();
+            if(!token) return;
+            const title=String(exam['Judul Ujian']||exam.title||exam['Mata Pelajaran']||exam.subject||'Ujian');
+            const kelas=String(exam['Rombel Target']||exam.rombel||exam['Jenjang Kelas']||exam.gradeLevel||'');
+            const status=String(exam['Status Saat Ini']||exam.Status||exam.status||'');
+            const opt=document.createElement('option'); opt.value=token;
+            opt.textContent=title+' · '+kelas+' · Token '+token+(status?' · '+status:'');
+            select.appendChild(opt);
+          });
+          if(select.options.length===1) select.innerHTML='<option value="">Tidak ada jadwal tersedia</option>';
+        } catch(e) {
+          select.innerHTML='<option value="">Gagal memuat jadwal</option>';
+          $('teacher-save-status').textContent='Daftar ujian reset gagal dimuat: '+e.message;
+        }
+      }
+      async function resetExamScores() {
+        if(!teacherSession) { $('teacher-save-status').textContent='Login guru kembali untuk reset nilai.'; return; }
+        const token=$('reset-exam-select').value;
+        if(!token) { $('teacher-save-status').textContent='Pilih ujian yang akan direset.'; return; }
+        const label=$('reset-exam-select').selectedOptions[0]?.textContent||token;
+        if(!confirm('YAKIN RESET NILAI?\n\n'+label+'\n\nBaris pada tab Nilai dan RekapNilai untuk ujian ini akan dihapus. Respons asli Google Form tetap ada dan nilai dapat muncul kembali jika sinkronisasi dilakukan. Ujian lain tidak terpengaruh.')) return;
+        $('teacher-save-status').textContent='Menghapus nilai ujian terpilih…';
+        try {
+          const res=await jsonp('resetExamScores',{teacherSession,token});
+          if(res.status==='error'||res.ok===false) throw new Error(res.message||'Reset gagal.');
+          $('teacher-save-status').textContent=res.message||'Reset nilai selesai.';
+          await loadResetExamOptions();
+        } catch(e) { $('teacher-save-status').textContent='Reset nilai gagal: '+e.message; }
+      }
+
       async function resetClassTokens() {
         if (!teacherSession) { $('teacher-save-status').textContent = 'Login guru kembali untuk reset token.'; return; }
         const grade = $('reset-grade').value;
