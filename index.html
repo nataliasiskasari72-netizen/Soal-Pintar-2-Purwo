@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>soalpintar.ai — Ujian Terkunci x Google Form</title>
+    <title>PORTAL CBT.ASAS — SMP Negeri 2 Purwosari</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -85,11 +85,11 @@
         <!-- Header Brand -->
         <div class="text-center mb-5">
             <div class="flex items-center justify-center gap-1.5 mb-2">
-                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">soalpintar<span class="text-emerald-400">.ai</span></span>
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">PORTAL CBT<span class="text-emerald-400">.ASAS</span></span>
             </div>
             <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-sm">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>Ujian Terkunci x Google Form</span>
+                <span>SMP Negeri 2 Purwosari</span>
             </div>
         </div>
 
@@ -378,7 +378,13 @@
               <option value="">Memuat daftar ujian…</option>
             </select>
             <button type="button" onclick="resetExamScores()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl px-3 py-2.5 text-sm">Reset Nilai Ujian Terpilih</button>
-            <p class="text-[11px] text-slate-400">Hanya menghapus baris ujian terpilih pada tab Nilai dan RekapNilai. Respons asli Google Form, soal, siswa, jadwal, dan ujian lain tetap ada. Sinkronisasi ulang dapat mengembalikan nilai dari respons Form.</p>
+            <p class="text-[11px] text-slate-400">Reset mengarsipkan nilai yang dihapus. Respons Form tetap aman; sinkronisasi mengabaikan respons lama sebelum reset.</p>
+            <div class="mt-3 border-t border-slate-700 pt-3 space-y-2">
+              <p class="text-xs font-bold text-emerald-300">Pulihkan Nilai dari Arsip Reset</p>
+              <select id="restore-reset-select" class="w-full bg-navy-950 border border-slate-700 rounded-xl p-2.5 text-sm text-white"><option value="">Memuat arsip…</option></select>
+              <button type="button" onclick="restoreResetArchive()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl px-3 py-2.5 text-sm">Pulihkan Nilai yang Diarsipkan</button>
+              <p class="text-[11px] text-slate-400">Mengembalikan data yang diarsipkan saat reset. Baris yang sudah ada tidak digandakan.</p>
+            </div>
           </div>
           <p id="teacher-save-status" class="text-xs text-slate-300"></p>
         </form>
@@ -391,7 +397,7 @@
     <script>
 
       // GANTI URL ini dengan URL Web App Apps Script yang berakhiran /exec.
-      const API_URL = 'https://script.google.com/macros/s/AKfycby33FLfSB3D8xguiH_ZWlKVG8Mp-zd2hGuBs9SjzV4ziyO36nT2c15ykcCCiID_e1e-/exec';
+      const API_URL = 'https://script.google.com/macros/s/AKfycbwymeGEULyGXgTkWZg2ogID2oEl0yLUpT26dRciYpS3K4Yr8VfsIjv_ML5KUNifdcR0/exec';
       let examsByToken = {}, currentExam = null, studentName = '', loggedStudent = null, allowedStudentTokens = new Set(), violations = 0, timerSeconds = 0, timerHandle = null, teacherSession = '', gradeFilter = 'ALL';
       let isLocked = false, examStarted = false, lastViolationAt = 0;
       const $ = id => document.getElementById(id);
@@ -414,7 +420,7 @@
           const script = document.createElement('script');
           const params = new URLSearchParams({ ...data, action, callback: cb });
           let settled = false;
-          const timeoutMs = action === 'syncFormGrades' ? 180000 : 20000; // sinkronisasi nilai diberi waktu 3 menit
+          const timeoutMs = (action === 'syncFormGrades' || action === 'resetExamScores' || action === 'restoreResetArchive') ? 180000 : 20000; // operasi data besar diberi waktu 3 menit
           const timeout = setTimeout(() => { cleanup(); reject(new Error('Permintaan server timeout (' + Math.round(timeoutMs/1000) + ' detik). Periksa URL deployment, koneksi, atau jumlah respons Form.')); }, timeoutMs);
           function cleanup() {
             if (settled) return;
@@ -696,6 +702,7 @@
           $('teacher-form').classList.remove('hidden');
           $('teacher-pin').value = '';
           await loadResetExamOptions();
+          await loadResetArchives();
         } catch (e) {
           $('teacher-auth-error').textContent = e.message;
           $('teacher-auth-error').classList.remove('hidden');
@@ -752,6 +759,37 @@
           $('teacher-save-status').textContent='Daftar ujian reset gagal dimuat: '+e.message;
         }
       }
+      async function loadResetArchives() {
+        const select=$('restore-reset-select');
+        if(!select) return;
+        select.innerHTML='<option value="">Memuat arsip…</option>';
+        try {
+          const res=await jsonp('listResetArchives',{teacherSession});
+          if(!Array.isArray(res)) throw new Error(res.message||'Arsip tidak tersedia.');
+          select.innerHTML='<option value="">-- Pilih arsip yang dipulihkan --</option>';
+          res.forEach(a=>{
+            const opt=document.createElement('option'); opt.value=a.resetId;
+            opt.textContent='Token '+a.token+' · '+a.resetAt+' · '+a.count+' baris';
+            select.appendChild(opt);
+          });
+          if(select.options.length===1) select.innerHTML='<option value="">Belum ada arsip yang dapat dipulihkan</option>';
+        } catch(e) { select.innerHTML='<option value="">Gagal memuat arsip</option>'; }
+      }
+      async function restoreResetArchive() {
+        if(!teacherSession){$('teacher-save-status').textContent='Login guru kembali untuk memulihkan nilai.';return;}
+        const resetId=$('restore-reset-select').value;
+        if(!resetId){$('teacher-save-status').textContent='Pilih arsip reset terlebih dahulu.';return;}
+        const label=$('restore-reset-select').selectedOptions[0]?.textContent||resetId;
+        if(!confirm('Pulihkan nilai dari arsip ini?\n\n'+label+'\n\nBaris yang sudah ada tidak akan diduplikasi.'))return;
+        $('teacher-save-status').textContent='Memulihkan nilai dari arsip…';
+        try{
+          const res=await jsonp('restoreResetArchive',{teacherSession,resetId});
+          if(res.status==='error'||res.ok===false)throw new Error(res.message||'Pemulihan gagal.');
+          $('teacher-save-status').textContent=res.message||'Nilai berhasil dipulihkan.';
+          await loadResetArchives();
+        }catch(e){$('teacher-save-status').textContent='Pemulihan gagal: '+e.message;}
+      }
+
       async function resetExamScores() {
         if(!teacherSession) { $('teacher-save-status').textContent='Login guru kembali untuk reset nilai.'; return; }
         const token=$('reset-exam-select').value;
@@ -764,6 +802,7 @@
           if(res.status==='error'||res.ok===false) throw new Error(res.message||'Reset gagal.');
           $('teacher-save-status').textContent=res.message||'Reset nilai selesai.';
           await loadResetExamOptions();
+          await loadResetArchives();
         } catch(e) { $('teacher-save-status').textContent='Reset nilai gagal: '+e.message; }
       }
 
